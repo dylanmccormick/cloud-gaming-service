@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"sync"
+
+	"github.com/dylanmccormick/webrtc-streamer/internal/logging"
 )
 
 type RingBuffer struct {
@@ -12,18 +16,18 @@ type RingBuffer struct {
 	size     int
 	count    int
 	mutex    sync.RWMutex
+	logger   *slog.Logger
 }
 
-func NewRingBuffer(size int) *RingBuffer {
+func NewRingBuffer(ctx context.Context, size int) *RingBuffer {
 	return &RingBuffer{
 		frames: make([][]byte, size),
 		size:   size,
+		logger : logging.FromContext(ctx),
 	}
 }
 
 func (rb *RingBuffer) Write(frame []byte) {
-	fmt.Println("write start")
-	rb.LogData()
 	rb.mutex.Lock()
 	defer rb.mutex.Unlock()
 
@@ -31,7 +35,6 @@ func (rb *RingBuffer) Write(frame []byte) {
 	copy(frameCopy, frame)
 
 	rb.frames[rb.writePos] = frameCopy
-	fmt.Printf("write in pos: %d\n", rb.writePos)
 	rb.writePos = (rb.writePos + 1) % rb.size
 
 	if rb.count < rb.size {
@@ -40,15 +43,11 @@ func (rb *RingBuffer) Write(frame []byte) {
 		// Buffer full. Advance read pointer
 		rb.readPos = (rb.readPos + 1) % rb.size
 	}
-	fmt.Println("write end")
 
 }
 
 func (rb *RingBuffer) Read() ([]byte, bool) {
-	fmt.Println("read start")
-	rb.LogData()
 	rb.mutex.Lock()
-	fmt.Println("read has lock")
 	defer rb.mutex.Unlock()
 
 	if rb.count == 0 {
@@ -56,11 +55,11 @@ func (rb *RingBuffer) Read() ([]byte, bool) {
 	}
 
 	frame := rb.frames[rb.readPos]
-	fmt.Printf("read readPos: %d\n", rb.readPos)
+	rb.logger.Debug("Ring Buffer", "readPos", rb.readPos)
 	rb.readPos = (rb.readPos + 1) % rb.size
 	rb.count--
 
-	fmt.Println("read end")
+	rb.logger.Debug("end read")
 	return frame, true
 }
 
@@ -72,8 +71,8 @@ func (rb *RingBuffer) Available() int {
 }
 
 func (rb *RingBuffer) LogData() {
-	fmt.Printf("\t\t\tRead Position : %5d\n", rb.readPos)
-	fmt.Printf("\t\t\tWrite Position: %5d\n", rb.writePos)
-	fmt.Printf("\t\t\tCount   	: %5d\n", rb.count)
-	fmt.Printf("\t\t\tFrames 	: %5d\n", len(rb.frames))
+	rb.logger.Info(fmt.Sprintf("\t\t\tRead Position : %5d\n", rb.readPos))
+	rb.logger.Info(fmt.Sprintf("\t\t\tWrite Position: %5d\n", rb.writePos))
+	rb.logger.Info(fmt.Sprintf("\t\t\tCount   	: %5d\n", rb.count))
+	rb.logger.Info(fmt.Sprintf("\t\t\tFrames 	: %5d\n", len(rb.frames)))
 }

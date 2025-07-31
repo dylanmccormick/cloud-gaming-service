@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
-	"fmt"
+	"log/slog"
+
+	"github.com/dylanmccormick/webrtc-streamer/internal/logging"
 )
 
 type parserState int
@@ -13,6 +16,7 @@ type IVFParser struct {
 	headerRead bool
 	expectedFrameSize uint32
 	ringBuffer *RingBuffer
+	logger *slog.Logger
 }
 
 
@@ -22,36 +26,30 @@ const (
 	ReadingFrame
 )
 
-func NewIVFParser(bufferSize int) *IVFParser {
+func NewIVFParser(ctx context.Context, bufferSize int) *IVFParser {
 	return &IVFParser {
 		buffer: make([]byte, 0),
-		ringBuffer: NewRingBuffer(bufferSize),
+		ringBuffer: NewRingBuffer(ctx, bufferSize),
+		logger: logging.FromContext(ctx),
 	}
 }
 
 func (p *IVFParser) ProcessData(newData []byte) {
 	p.buffer = append(p.buffer, newData...)
-	fmt.Printf("Buffer bytes: %v\n", p.buffer[:8])
 
 	if p.state == ReadingHeader && len(p.buffer) >= 32 && !p.headerRead {
-		header := p.buffer[:32]
-		fmt.Printf("investigate %v\n", header)
 		p.buffer = p.buffer[32:]
 		p.incrementState()
-		fmt.Println("investigate: read header")
 		p.headerRead = true
 	}
 
 	if p.state == ReadingSize && len(p.buffer) >= 12 {
 		p.expectedFrameSize = binary.LittleEndian.Uint32(p.buffer[0:4])
-		fmt.Printf("investigate frame details: %v\n", p.buffer[:12])
 		p.buffer = p.buffer[12:]
 		p.incrementState()
-		fmt.Printf("investigate: read size: %d\n", p.expectedFrameSize)
 	}
 
 	if p.state == ReadingFrame && len(p.buffer) >= int(p.expectedFrameSize) {
-		fmt.Printf("reading frame with size: %d\n", p.expectedFrameSize)
 		frame := make([]byte, p.expectedFrameSize)
 		copy(frame, p.buffer[:p.expectedFrameSize])
 
@@ -60,7 +58,6 @@ func (p *IVFParser) ProcessData(newData []byte) {
 		p.buffer = p.buffer[p.expectedFrameSize:]
 		p.incrementState()
 
-		fmt.Printf("investigate: wrote to buffer\n")
 
 	}
 
