@@ -12,8 +12,8 @@ import (
 
 func main2() {
 
-	for range(15) {
-		img, _ := screenshot.CaptureRect(image.Rect(0,0,640,480))
+	for range 15 {
+		img, _ := screenshot.CaptureRect(image.Rect(0, 0, 640, 480))
 		encoded, err := encodeFrame(img.Pix, 640, 480)
 		if err != nil {
 			fmt.Printf("Error: %v", err)
@@ -33,18 +33,18 @@ func main2() {
 func encodeFrame(rawFrame []byte, width, height int) ([]byte, error) {
 	var buf bytes.Buffer
 
-	err := ffmpeg.Input("pipe:", 
+	err := ffmpeg.Input("pipe:",
 		ffmpeg.KwArgs{
-		"format": "rawvideo",
-		"pix_fmt": "rgba",
-		"s": fmt.Sprintf("%dx%d", width, height),
+			"format":  "rawvideo",
+			"pix_fmt": "rgba",
+			"s":       fmt.Sprintf("%dx%d", width, height),
 		}).
 		Output("pipe:", ffmpeg.KwArgs{
-			"c:v": "libvpx",
-			"f": "ivf",
-			"frames:v": "1",
+			"c:v":          "libvpx",
+			"f":            "ivf",
+			"frames:v":     "1",
 			"auto-alt-ref": "0",
-			"loglevel": "quiet",
+			"loglevel":     "quiet",
 		}).
 		WithInput(bytes.NewReader(rawFrame)).
 		WithOutput(&buf).

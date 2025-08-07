@@ -23,7 +23,7 @@ func NewRingBuffer(ctx context.Context, size int) *RingBuffer {
 	return &RingBuffer{
 		frames: make([][]byte, size),
 		size:   size,
-		logger : logging.FromContext(ctx),
+		logger: logging.FromContext(ctx),
 	}
 }
 
